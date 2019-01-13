@@ -1,0 +1,66 @@
+
+@{
+    ViewBag.Title = "Index";
+}
+<script src="https://code.jquery.com/jquery-3.3.1.js"></script>
+<script src="https://cdn.datatables.net/1.10.19/js/jquery.dataTables.min.js"></script>
+
+
+<h2>Index</h2>
+<a href="@Url.Action("Create","Employee",new { @id=0})" class="btn btn-primary" id="btnCreate" >+Create</a>
+<table id="tblEmployeeList" class="table-bordered table-striped myTable " cellpadding="0" cellspacing="0" border="1" width="100%"></table>
+
+<script>
+    var assetListVM;
+     assetListVM = {
+            dt: null,
+
+            init: function () {
+                dt = $('#tblEmployeeList').DataTable({
+                    "serverSide": true,
+                    "processing": true,
+                    "language": {
+                        processing: "<img src='/images/datatable-loader.gif'>"
+                    },
+
+                    "scrollY": '100vh',
+                    "scrollCollapse": true,
+
+                    "ajax": {
+                        "url": "@Url.Action("GetEmployeeData", "Employee")",
+                        "type": 'POST',
+                    },
+                    "columns": [
+                        { "title": "Id", "data": "Id", "visible": false },
+                        { "title": "EmpName", "data": "Name", "searchable": true },
+                     
+                        {
+                            "title": "Edit", "data": "", render: function (ImagePath, type, user) {
+
+                                return `<a href="/Employee/Create/${user.Id}" class="btn btn-link">Edit</a>`;
+                            }
+                        }, 
+                       
+                    ],
+                    "lengthMenu": [[10, 25, 50, 100], [10, 25, 50, 100]],
+                });
+            }
+    }
+    assetListVM.init();
+    $('#tblEmployeeList').on('dblclick', 'td', function (e) {
+        var data1 = dt.row($(this).parents('tr')).data()["Id"];
+         $.ajax({
+                type: "POST",
+                url: "@Url.Action("GetDescription","Employee")",
+                data: "{'CId': '" + data1 + "'}",
+                dataType: "json",
+                contentType: "application/json; charset=utf-8",
+                success: function (data) {
+                    alert(data);
+                },
+                error: function () {
+                    alert("error");
+                }
+            });
+    });
+</script>
