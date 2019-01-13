@@ -1,0 +1,148 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Web;
+using System.Web.Mvc;
+using DataTables.Mvc;
+using MachTest.Data;
+using MachTest.Models;
+
+namespace MachTest.Controllers
+{
+    public class EmployeeController : Controller
+    {
+        // GET: Employee
+        public ActionResult Index()
+        {
+            return View();
+        }
+        [HttpPost]
+        public ActionResult GetEmployeeData([ModelBinder(typeof(DataTablesBinder))] IDataTablesRequest requestModel)
+        {
+            try
+            {
+                var _dbContext = new TestEntities();
+
+                IQueryable<Employee> query = _dbContext.Employees;
+
+                var totalCount = query.Count();
+
+                #region Filtering 
+
+                // Apply filters for searching 
+                if (requestModel.Search.Value != string.Empty)
+                {
+                    var value = requestModel.Search.Value.Trim();
+                    query = query.Where(p => p.EmployeeName.Contains(value) ||
+                                             p.Email.Contains(value)
+                                       );
+                }
+
+                var filteredCount = query.Count();
+
+                #endregion Filtering 
+
+                // Paging 
+                query = query.OrderByDescending(c => c.EmployeeId).Skip(requestModel.Start).Take(requestModel.Length);
+
+                var data = query.Select(ToModel).ToList();
+
+                return Json(new DataTablesResponse(requestModel.Draw, data, filteredCount, totalCount), JsonRequestBehavior.AllowGet);
+            }
+            catch (Exception ex)
+            {
+                //Exception handled here and also written on logs with current date text file
+                Helper.WriteLogs(ex, "Employee/GetEmployeeData()");
+                return Json("Something Went wrong", JsonRequestBehavior.AllowGet);
+            }
+        }
+
+         public ActionResult Create(int id)
+        {
+            var model = new vmEmployee();
+            if (id > 0)
+            {
+                var _dbContext = new TestEntities();
+                model = _dbContext.Employees.Where(x => x.EmployeeId == id).Select(ToModel).FirstOrDefault();
+            }
+            return View(model);
+        }
+
+        public byte[] GetImageIntoArray(HttpPostedFileBase file)
+        {
+            byte[] data;
+            using (Stream inputStream = file.InputStream)
+            {
+                MemoryStream memoryStream = inputStream as MemoryStream;
+                if (memoryStream == null)
+                {
+                    memoryStream = new MemoryStream();
+                    inputStream.CopyTo(memoryStream);
+                }
+                data = memoryStream.ToArray();
+            }
+            return data;
+        }
+
+        [HttpPost]
+        public ActionResult Create(vmEmployee model, HttpPostedFileBase file)
+        {
+            var _dbContext = new TestEntities();
+            if (model.Id == 0)
+            {
+                try
+                {
+               
+                _dbContext.Products.Add(new Product()
+                {
+                    EmployeeName = model.Name,              
+                    Email = model.Email,
+                    ProductImage = file!= null ? GetImageIntoArray(file) : null
+                });
+                _dbContext.SaveChanges();
+                }
+                catch (Exception ex)
+                {
+                    Helper.WriteLogs(ex, "Product/Create()");
+                }
+            }
+            else
+            {
+                try
+                {            
+                var dbModal = _dbContext.Employees.Where(x => x.EmployeeId == model.Id).FirstOrDefault();
+                if (dbModal != null)
+                {
+                    dbModal.EmployeeName = model.Name;
+                    dbModal.Email = model.Email;
+                    if (file != null)
+                            dbModal.EmployeeImage = GetImageIntoArray(file);
+                    _dbContext.SaveChanges();
+                }
+                }
+                catch (Exception ex)
+                {
+                    Helper.WriteLogs(ex, "Employee/Update()");
+                }
+            }
+
+            return RedirectToAction("Index");
+        }
+
+        public JsonResult GetDescription(int CId)
+        {
+            var _dbContext = new TestEntities();
+            try
+            {
+                var dbModal = _dbContext.Employees.Where(x => x.EmployeeId == CId).FirstOrDefault();
+                return Json(dbModal.EmployeeDescrition, JsonRequestBehavior.AllowGet);
+            }
+            catch (Exception ex)
+            {
+                Helper.WriteLogs(ex, "Employee/GetDescription()");
+                return Json("Something Went wrong", JsonRequestBehavior.AllowGet);
+            }
+        }
+    }
+}
